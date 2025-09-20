@@ -63,18 +63,37 @@ export default function JobCard({
       return;
     }
     setIsAnimating(true);
-    const res = await fetch(`/api/jobs/${job._id}`, {
+    const res = await fetch(`/api/jobs/${job._id}/assign`, {
       method: "PATCH",
-      body: JSON.stringify({
-        status: "in_progress",
-        assignedTo: job.claimRequestedBy._id,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "accept" }),
     });
     if (res.ok) {
       setLocalStatus("in_progress");
       setTimeout(() => refreshJobs(), 800);
     } else {
-      alert("Error assigning");
+      const err = await res.json();
+      alert("Error assigning: " + (err.error || "Something went wrong"));
+    }
+    setIsAnimating(false);
+  };
+
+  const handleRejectAssignment = async () => {
+    const note = prompt("Enter rejection reason:");
+    if (!note) return;
+
+    setIsAnimating(true);
+    const res = await fetch(`/api/jobs/${job._id}/assign`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reject", rejectionNote: note }),
+    });
+    if (res.ok) {
+      setLocalStatus("pending");
+      setTimeout(() => refreshJobs(), 800);
+    } else {
+      const err = await res.json();
+      alert("Error rejecting: " + (err.error || "Something went wrong"));
     }
     setIsAnimating(false);
   };
@@ -93,9 +112,8 @@ export default function JobCard({
 
   const handleAccept = async () => {
     setIsAnimating(true);
-    const res = await fetch(`/api/jobs/${job._id}`, {
+    const res = await fetch(`/api/jobs/${job._id}/accept`, {
       method: "PATCH",
-      body: JSON.stringify({ status: "accepted" }),
     });
     if (res.ok) {
       setLocalStatus("accepted");
@@ -111,9 +129,10 @@ export default function JobCard({
     if (!note) return;
 
     setIsAnimating(true);
-    const res = await fetch(`/api/jobs/${job._id}`, {
+    const res = await fetch(`/api/jobs/${job._id}/reject`, {
       method: "PATCH",
-      body: JSON.stringify({ status: "rejected", rejectionNote: note }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rejectionNote: note }),
     });
     if (res.ok) {
       setLocalStatus("rejected");
@@ -242,9 +261,7 @@ export default function JobCard({
                   .slice(0, 2)
                   .map(
                     (s: any) =>
-                      `${s.name} (${s.quantity ?? 1} × ${
-                        s.unitPrice ?? 0
-                      })`
+                      `${s.name} (${s.quantity ?? 1} × ${s.unitPrice ?? 0})`
                   )
                   .join(", ")}
                 {services.length > 2 && ` +${services.length - 2} more`}
@@ -264,12 +281,20 @@ export default function JobCard({
             )}
 
             {isAdmin && job.status === "assignment_requested" && (
-              <button
-                onClick={handleAssignToRequester}
-                className="px-4 py-2 bg-orange-600 text-white rounded"
-              >
-                Assign to requester
-              </button>
+              <>
+                <button
+                  onClick={handleAssignToRequester}
+                  className="px-4 py-2 bg-orange-600 text-white rounded"
+                >
+                  Assign to requester
+                </button>
+                <button
+                  onClick={handleRejectAssignment}
+                  className="px-4 py-2 bg-gray-500 text-white rounded"
+                >
+                  Reject request
+                </button>
+              </>
             )}
 
             {isTeam &&
@@ -284,9 +309,7 @@ export default function JobCard({
               )}
 
             <button
-              onClick={() =>
-                window.open(`/api/pdf/${job._id}`, "_blank")
-              }
+              onClick={() => window.open(`/api/pdf/${job._id}`, "_blank")}
               className="px-4 py-2 bg-gray-700 text-white rounded"
             >
               Download PDF
