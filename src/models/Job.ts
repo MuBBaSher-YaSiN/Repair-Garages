@@ -1,20 +1,6 @@
 // src/models/Job.ts
 import mongoose, { Schema, models } from "mongoose";
 
-const SubIssueSchema = new Schema({
-  key: String,
-  label: String,
-  severity: { type: String, enum: ["minor", "major", "ok"] },
-  comment: String,
-  // images: [String],
-});
-
-const InspectionTabSchema = new Schema({
-  key: String,
-  label: String,
-  subIssues: [SubIssueSchema],
-});
-
 const ServiceItemSchema = new Schema({
   serviceId: { type: Schema.Types.ObjectId, ref: "Service", required: false },
   name: { type: String, required: true },
@@ -44,9 +30,9 @@ const JobSchema = new Schema(
       enum: ["pending", "in_progress", "completed", "rejected", "accepted", "delivered"],
       default: "pending",
     },
-    inspectionTabs: [InspectionTabSchema],
-    services: [ServiceItemSchema], // NEW: list of services / estimate items
-    invoice: InvoiceSchema, // NEW: invoice summary
+    services: [ServiceItemSchema],
+    invoice: InvoiceSchema,
+    totalOverride: { type: Number, default: null },
     rejectionNote: String,
   },
   { timestamps: true }

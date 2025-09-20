@@ -1,20 +1,4 @@
 // src/types/job.ts
-export type Severity = "minor" | "major" | "ok";
-
-export interface SubIssue {
-  key: string;
-  label: string;
-  severity: Severity;
-  comment?: string;
-  // images: string[];
-}
-
-export interface InspectionTab {
-  key: string;
-  label: string;
-  subIssues: SubIssue[];
-}
-
 export interface ServiceItem {
   serviceId?: string;
   name: string;
@@ -44,9 +28,9 @@ export interface Job {
     email: string;
   } | null;
   rejectionNote?: string;
-  inspectionTabs?: InspectionTab[];
   services?: ServiceItem[];
   invoice?: Invoice;
+  totalOverride?: number; // admin manual override for grand total
   createdAt?: string;
   updatedAt?: string;
 }

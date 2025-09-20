@@ -2,291 +2,140 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-// import { FiUpload } from "react-icons/fi";
-import { inspectionTabs as baseTabs } from "@/config/inspectionTabs";
-import type { Job, Severity } from "@/types/job";
+import type { Job } from "@/types/job";
 
 export default function EditJobPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState(baseTabs[0].key);
-  const [form, setForm] = useState<Job | null>(null);
+  const [form, setForm] = useState<Partial<Job> | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch existing job
   useEffect(() => {
     const fetchJob = async () => {
+      setLoading(true);
       const res = await fetch(`/api/jobs/${id}`);
       if (res.ok) {
         const job = await res.json();
-        // Merge with inspectionTabs so missing fields are added
-        const mergedTabs = baseTabs.map((tab) => {
-          const existingTab = job.inspectionTabs.find(
-            (t: any) => t.key === tab.key
-          );
-          return {
-            ...tab,
-            subIssues: tab.subIssues.map((issue) => {
-              const existingIssue = existingTab?.subIssues.find(
-                (i: any) => i.key === issue.key
-              );
-              return {
-                ...issue,
-                severity: existingIssue?.severity || "ok",
-                comment: existingIssue?.comment || "",
-                // images: existingIssue?.images || [],
-              };
-            }),
-          };
-        });
-
         setForm({
           ...job,
-          inspectionTabs: mergedTabs,
+          // ensure services array exists
+          services: job.services || [],
+          totalOverride: job.totalOverride ?? job.invoice?.total ?? null,
         });
+      } else {
+        alert("Failed to load job");
       }
       setLoading(false);
     };
     fetchJob();
   }, [id]);
 
-  // const uploadToCloudinary = async (file: File) => {
-  //   const url = `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`;
-  //   const formData = new FormData();
-  //   formData.append("file", file);
-  //   formData.append(
-  //     "upload_preset",
-  //     process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || ""
-  //   );
+  const updateService = (idx: number, patch: Partial<any>) => {
+    if (!form) return;
+    const services = [...(form.services || [])];
+    const it = { ...(services[idx] || {}), ...patch };
+    it.quantity = Number(it.quantity || 1);
+    it.unitPrice = Number(it.unitPrice || 0);
+    it.totalPrice = Number(it.quantity * it.unitPrice);
+    services[idx] = it;
+    setForm({ ...form, services });
+  };
 
-  //   const res = await fetch(url, { method: "POST", body: formData });
-  //   if (!res.ok) throw new Error("Cloudinary upload failed");
-  //   const data = await res.json();
-  //   return data.secure_url as string;
-  // };
+  const addCustomService = () => {
+    if (!form) return;
+    const services = [{ name: "Custom service", quantity: 1, unitPrice: 0, totalPrice: 0 }, ...(form.services || [])];
+    setForm({ ...form, services });
+  };
 
-  // const handleFileChange = async (
-  //   tabKey: string,
-  //   issueKey: string,
-  //   files: FileList | null
-  // ) => {
-  //   if (!files) return;
-  //   try {
-  //     const uploadedUrls = await Promise.all(
-  //       Array.from(files).map((file) => uploadToCloudinary(file))
-  //     );
-  //     setForm((prev) =>
-  //       prev
-  //         ? {
-  //             ...prev,
-  //             inspectionTabs: prev.inspectionTabs.map((tab) =>
-  //               tab.key === tabKey
-  //                 ? {
-  //                     ...tab,
-  //                     subIssues: tab.subIssues.map((issue) =>
-  //                       issue.key === issueKey
-  //                         ? { ...issue, images: [...issue.images, ...uploadedUrls] }
-  //                         : issue
-  //                     ),
-  //                   }
-  //                 : tab
-  //             ),
-  //           }
-  //         : prev
-  //     );
-  //   } catch (error) {
-  //     console.error("Image upload failed", error);
-  //   }
-  // };
+  const removeService = (idx: number) => {
+    if (!form) return;
+    const services = (form.services || []).filter((_, i) => i !== idx);
+    setForm({ ...form, services });
+  };
+
+  const calcSubtotal = () => (form?.services || []).reduce((s, it) => s + (Number(it.totalPrice) || 0), 0);
+  const subtotal = calcSubtotal();
+  const totalToUse = typeof form?.totalOverride === "number" ? form.totalOverride : subtotal;
 
   const handleSubmit = async () => {
     if (!form) return;
-    const payload = {
+    const payload: any = {
       carNumber: form.carNumber,
       customerName: form.customerName,
       engineNumber: form.engineNumber,
-      inspectionTabs: form.inspectionTabs,
+      services: form.services,
+      totalOverride: form.totalOverride ?? null,
     };
+    // set invoice object
+    payload.invoice = { subtotal, tax: 0, total: totalToUse };
+
     const res = await fetch(`/api/jobs/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     if (res.ok) {
-      alert("Job updated successfully");
+      alert("Job updated");
       router.push("/admin/dashboard");
     } else {
-      alert("Error updating job");
+      const err = await res.json().catch(() => null);
+      alert("Failed to update job: " + (err?.details || err?.error || "Unknown"));
     }
   };
 
-  if (loading || !form) return <p className="p-6">Loading job...</p>;
+  if (loading || !form) return <p className="p-6">Loading...</p>;
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      {/* Job Details */}
-      <div className="bg-white dark:bg-gray-800 rounded shadow p-4 space-y-4">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-          Edit Job
-        </h2>
-        <input
-          type="text"
-          placeholder="Car Number"
-          value={form.carNumber}
-          onChange={(e) => setForm({ ...form, carNumber: e.target.value })}
-          className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-        <input
-          type="text"
-          placeholder="Customer Name"
-          value={form.customerName}
-          onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-          className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-        <input
-          type="text"
-          placeholder="Engine Number"
-          value={form.engineNumber || ""}
-          onChange={(e) => setForm({ ...form, engineNumber: e.target.value })}
-          className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+          <h2 className="text-lg font-bold">Edit Job</h2>
+          <input className="w-full my-2 p-2 border rounded" placeholder="Car Number" value={form.carNumber || ""} onChange={(e) => setForm({ ...form, carNumber: e.target.value })} />
+          <input className="w-full my-2 p-2 border rounded" placeholder="Customer Name" value={form.customerName || ""} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
+          <input className="w-full my-2 p-2 border rounded" placeholder="Engine Number" value={form.engineNumber || ""} onChange={(e) => setForm({ ...form, engineNumber: e.target.value })} />
+        </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap space-x-2 mb-4">
-        {baseTabs.map((tab) => (
-          <button
-            key={tab.key}
-            className={`px-4 py-2 my-2 rounded transition-colors ${
-              activeTab === tab.key
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
-            }`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      {form.inspectionTabs
-        .filter((tab) => tab.key === activeTab)
-        .map((tab) => (
-          <div key={tab.key} className="space-y-4">
-            {tab.subIssues.map((issue) => (
-              <div
-                key={issue.key}
-                className="p-4 bg-white dark:bg-gray-800 rounded shadow"
-              >
-                <h3 className="font-bold mb-2 text-gray-900 dark:text-white">
-                  {issue.label}
-                </h3>
-
-                <select
-                  value={issue.severity}
-                  onChange={(e) =>
-                    setForm((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            inspectionTabs: prev.inspectionTabs.map((t) =>
-                              t.key === tab.key
-                                ? {
-                                    ...t,
-                                    subIssues: t.subIssues.map((i) =>
-                                      i.key === issue.key
-                                        ? {
-                                            ...i,
-                                            severity: e.target
-                                              .value as Severity,
-                                          }
-                                        : i
-                                    ),
-                                  }
-                                : t
-                            ),
-                          }
-                        : prev
-                    )
-                  }
-                  className="mb-2 border border-gray-300 dark:border-gray-600 p-2 rounded w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="minor">Minor</option>
-                  <option value="major">Major</option>
-                  <option value="ok">OK</option>
-                </select>
-
-                <textarea
-                  placeholder="Comment"
-                  value={issue.comment}
-                  onChange={(e) =>
-                    setForm((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            inspectionTabs: prev.inspectionTabs.map((t) =>
-                              t.key === tab.key
-                                ? {
-                                    ...t,
-                                    subIssues: t.subIssues.map((i) =>
-                                      i.key === issue.key
-                                        ? { ...i, comment: e.target.value }
-                                        : i
-                                    ),
-                                  }
-                                : t
-                            ),
-                          }
-                        : prev
-                    )
-                  }
-                  className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded mb-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-                {/* 
-                <label className="flex items-center space-x-2 cursor-pointer text-gray-900 dark:text-white">
-                  <FiUpload />
-                  <span>Upload Images</span>
-                  <input
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={(e) =>
-                      handleFileChange(tab.key, issue.key, e.target.files)
-                    }
-                  />
-                </label> */}
-
-                {/* {issue.images.length > 0 && (
-                  <div className="flex space-x-2 mt-2">
-                    {issue.images.map((src, idx) => (
-                      <div
-                        key={idx}
-                        className="relative w-20 h-20 rounded border border-gray-300 dark:border-gray-600 overflow-hidden"
-                      >
-                        <Image
-                          src={src}
-                          alt={`Issue image ${idx + 1}`}
-                          fill
-                          className="object-cover"
-                          sizes="80px"
-                        />
+        <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+          <h3 className="font-semibold">Services</h3>
+          <div className="mt-3 space-y-2">
+            <button onClick={addCustomService} className="px-3 py-1 bg-indigo-600 text-white rounded">Add custom service</button>
+            {(form.services || []).length === 0 ? <p className="text-sm text-muted-foreground">No services</p> : (
+              <ul className="space-y-2 mt-3">
+                {(form.services || []).map((it: any, idx: number) => (
+                  <li key={idx} className="p-2 border rounded flex gap-3 items-start">
+                    <div className="flex-1">
+                      <input className="w-full mb-1 p-1 border rounded" value={it.name || ""} onChange={(e) => updateService(idx, { name: e.target.value })} />
+                      <div className="text-sm text-muted-foreground">
+                        <input type="number" className="w-20 p-1 mr-2 border rounded inline" value={it.quantity} onChange={(e) => updateService(idx, { quantity: Number(e.target.value) })} />
+                        ×
+                        <input type="number" className="w-28 ml-2 p-1 border rounded inline" value={it.unitPrice} onChange={(e) => updateService(idx, { unitPrice: Number(e.target.value) })} />
+                        = <strong className="ml-2">{(it.totalPrice || 0).toFixed(2)}</strong>
                       </div>
-                    ))}
-                  </div>
-                )} */}
+                      <input className="w-full mt-2 p-1 border rounded" placeholder="Notes" value={it.notes || ""} onChange={(e) => updateService(idx, { notes: e.target.value })} />
+                    </div>
+                    <div>
+                      <button className="text-red-600" onClick={() => removeService(idx)}>Remove</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="text-right mt-3">
+              <div>Subtotal: <strong>{subtotal.toFixed(2)}</strong></div>
+              <div className="mt-2">
+                <label className="mr-2">Grand total (override)</label>
+                <input type="number" value={form.totalOverride ?? ""} onChange={(e) => setForm({ ...form, totalOverride: e.target.value === "" ? undefined : Number(e.target.value) })} className="w-36 p-1 border rounded inline" />
+                <div className="text-sm text-muted-foreground">Leave blank to use subtotal</div>
               </div>
-            ))}
+              <div className="mt-2 font-semibold">Total to invoice: {(totalToUse || 0).toFixed(2)}</div>
+            </div>
           </div>
-        ))}
+        </div>
 
-      {/* Submit */}
-      <button
-        onClick={handleSubmit}
-        className="mt-6 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white px-4 py-2 rounded transition-colors"
-      >
-        Save Changes
-      </button>
+        <div className="flex justify-end">
+          <button onClick={handleSubmit} className="px-6 py-2 rounded bg-green-600 text-white">Save Changes</button>
+        </div>
+      </div>
     </div>
   );
 }
