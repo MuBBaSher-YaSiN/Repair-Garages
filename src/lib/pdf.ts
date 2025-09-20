@@ -329,6 +329,46 @@ export async function generateJobPDF(job: Job, logoBytes?: Uint8Array): Promise<
 
   y -= 60;
 
+// Render Services table (if any)
+if (job.services && job.services.length > 0) {
+  ensureSpace(22 + (job.services.length + 3) * 16);
+
+  page.drawText("Services & Estimate", { x: marginX, y, size: 12, font: boldFont, color: rgb(0.13,0.13,0.13) });
+  y -= 18;
+
+  // Table headers
+  page.drawText("Service", { x: marginX, y, size: 10, font: boldFont });
+  page.drawText("Qty", { x: marginX + 260, y, size: 10, font: boldFont });
+  page.drawText("Unit", { x: marginX + 310, y, size: 10, font: boldFont });
+  page.drawText("Total", { x: marginX + 380, y, size: 10, font: boldFont });
+  y -= 14;
+
+  for (const s of job.services) {
+    const nameLines = wrapText(s.name || "-", font, 10, maxTextWidth(0, 80));
+    for (const ln of nameLines) {
+      page.drawText(ln, { x: marginX, y, size: 10, font });
+      y -= 12;
+    }
+    // After name, draw qty/unit/total on the same y + offset
+    // Note: if name took multiple lines the y already moved; adjust drawing to previous y+... For simplicity draw numeric columns using the last y + (12 * nameLines.length)
+    const lastY = y + 12 * (nameLines.length);
+    page.drawText(String(s.quantity ?? 1), { x: marginX + 260, y: lastY, size: 10, font });
+    page.drawText((s.unitPrice ?? 0).toFixed(2), { x: marginX + 310, y: lastY, size: 10, font });
+    page.drawText((s.totalPrice ?? 0).toFixed(2), { x: marginX + 380, y: lastY, size: 10, font });
+  }
+
+  // invoice summary
+  y -= 12;
+  ensureSpace(60);
+  const inv = job.invoice || { subtotal: 0, tax: 0, total: 0 };
+  page.drawText(`Subtotal: ${Number(inv.subtotal || 0).toFixed(2)}`, { x: marginX + 320, y, size: 11, font: boldFont });
+  y -= 14;
+  page.drawText(`Tax: ${Number(inv.tax || 0).toFixed(2)}`, { x: marginX + 320, y, size: 11, font: boldFont });
+  y -= 14;
+  page.drawText(`Total: ${Number(inv.total || inv.subtotal || 0).toFixed(2)}`, { x: marginX + 320, y, size: 12, font: boldFont });
+  y -= 18;
+}
+
   // ====== Issues grouped (UI: numbering + wrapped comments) ======
   const grouped: Record<string, typeof job.inspectionTabs[0]["subIssues"]> = {
     Minor: [],

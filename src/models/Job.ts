@@ -1,4 +1,4 @@
-
+// src/models/Job.ts
 import mongoose, { Schema, models } from "mongoose";
 
 const SubIssueSchema = new Schema({
@@ -6,13 +6,31 @@ const SubIssueSchema = new Schema({
   label: String,
   severity: { type: String, enum: ["minor", "major", "ok"] },
   comment: String,
-  // images: [String], 
+  // images: [String],
 });
 
 const InspectionTabSchema = new Schema({
   key: String,
   label: String,
   subIssues: [SubIssueSchema],
+});
+
+const ServiceItemSchema = new Schema({
+  serviceId: { type: Schema.Types.ObjectId, ref: "Service", required: false },
+  name: { type: String, required: true },
+  quantity: { type: Number, default: 1 },
+  unitPrice: { type: Number, required: true },
+  totalPrice: { type: Number, required: true },
+  allowCustomPrice: { type: Boolean, default: true },
+  notes: { type: String },
+});
+
+const InvoiceSchema = new Schema({
+  subtotal: { type: Number, default: 0 },
+  tax: { type: Number, default: 0 },
+  total: { type: Number, default: 0 },
+  paid: { type: Boolean, default: false },
+  generatedAt: { type: Date },
 });
 
 const JobSchema = new Schema(
@@ -23,10 +41,12 @@ const JobSchema = new Schema(
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     status: {
       type: String,
-      enum: ["pending", "in_progress", "completed", "rejected"],
+      enum: ["pending", "in_progress", "completed", "rejected", "accepted", "delivered"],
       default: "pending",
     },
     inspectionTabs: [InspectionTabSchema],
+    services: [ServiceItemSchema], // NEW: list of services / estimate items
+    invoice: InvoiceSchema, // NEW: invoice summary
     rejectionNote: String,
   },
   { timestamps: true }
