@@ -25,14 +25,26 @@ const JobSchema = new Schema(
     customerName: { type: String, required: true },
     engineNumber: { type: String },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
+
+    // NEW: when a team member requests assignment, we store that here until admin approves
+    claimRequestedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+
     status: {
       type: String,
-      enum: ["pending", "in_progress", "completed", "rejected", "accepted", "delivered"],
+      enum: [
+        "pending",
+        "assignment_requested", // new intermediate status when team member requests a claim
+        "in_progress",
+        "completed",
+        "rejected",
+        "accepted",
+        "delivered",
+      ],
       default: "pending",
     },
     services: [ServiceItemSchema],
     invoice: InvoiceSchema,
-    totalOverride: { type: Number, default: null },
+    totalOverride: { type: Number, default: null }, // admin override for invoice total
     rejectionNote: String,
   },
   { timestamps: true }

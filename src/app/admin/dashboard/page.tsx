@@ -110,14 +110,16 @@ export default function AdminDashboard() {
                 <SelectValue placeholder="Filter by status" />
               </div>
             </SelectTrigger>
-            <SelectContent className="backdrop-blur-sm bg-white/80 dark:bg-gray-900/80">
-              <SelectItem value="all">All Jobs</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="accepted">Accepted</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
+           <SelectContent className="backdrop-blur-sm bg-white/80 dark:bg-gray-900/80">
+  <SelectItem value="all">All Jobs</SelectItem>
+  <SelectItem value="pending">Pending</SelectItem>
+  <SelectItem value="assignment_requested">Assignment Requests</SelectItem>
+  <SelectItem value="in_progress">In Progress</SelectItem>
+  <SelectItem value="completed">Completed</SelectItem>
+  <SelectItem value="accepted">Accepted</SelectItem>
+  <SelectItem value="rejected">Rejected</SelectItem>
+  <SelectItem value="delivered">Delivered</SelectItem>
+</SelectContent>
           </Select>
         </motion.div>
 

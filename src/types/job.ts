@@ -1,4 +1,19 @@
 // src/types/job.ts
+export type Severity = "minor" | "major" | "ok";
+
+export interface SubIssue {
+  key: string;
+  label: string;
+  severity: Severity;
+  comment?: string;
+}
+
+export interface InspectionTab {
+  key: string;
+  label: string;
+  subIssues: SubIssue[];
+}
+
 export interface ServiceItem {
   serviceId?: string;
   name: string;
@@ -22,15 +37,16 @@ export interface Job {
   carNumber: string;
   customerName: string;
   engineNumber?: string;
-  status: "pending" | "in_progress" | "completed" | "rejected" | "accepted" | "delivered";
+  status: "pending" | "assignment_requested" | "in_progress" | "completed" | "rejected" | "accepted" | "delivered";
   assignedTo?: {
     _id: string;
     email: string;
   } | null;
+  claimRequestedBy?: { _id: string; email?: string } | null;
   rejectionNote?: string;
+  inspectionTabs?: InspectionTab[];
   services?: ServiceItem[];
   invoice?: Invoice;
-  totalOverride?: number; // admin manual override for grand total
   createdAt?: string;
   updatedAt?: string;
 }

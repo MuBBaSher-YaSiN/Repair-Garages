@@ -6,7 +6,6 @@ export const subIssueSchema = z.object({
   label: z.string(),
   severity: z.enum(["minor", "major", "ok"]),
   comment: z.string().optional(),
-  // images: z.array(z.string()).optional(),
 });
 
 export const inspectionTabSchema = z.object({
@@ -16,28 +15,39 @@ export const inspectionTabSchema = z.object({
 });
 
 export const serviceItemSchema = z.object({
-  serviceId: z.string().optional(), // optional in case custom service (no catalog id)
-  name: z.string().min(1),
-  quantity: z.number().int().min(1).default(1),
-  unitPrice: z.number().min(0),
-  totalPrice: z.number().min(0),
-  allowCustomPrice: z.boolean().optional(),
+  serviceId: z.string().optional(),
+  name: z.string(),
+  quantity: z.number().min(1).optional().default(1),
+  unitPrice: z.number().min(0).optional().default(0),
+  totalPrice: z.number().min(0).optional().default(0),
+  allowCustomPrice: z.boolean().optional().default(true),
   notes: z.string().optional(),
 });
 
 export const invoiceSchema = z.object({
-  subtotal: z.number().min(0).optional(),
-  tax: z.number().min(0).optional(),
-  total: z.number().min(0).optional(),
-  paid: z.boolean().optional(),
+  subtotal: z.number().min(0).optional().default(0),
+  tax: z.number().min(0).optional().default(0),
+  total: z.number().min(0).optional().default(0),
+  paid: z.boolean().optional().default(false),
+  generatedAt: z.string().optional(),
 });
 
 export const jobSchema = z.object({
   carNumber: z.string().min(1, "Car number is required"),
   customerName: z.string().min(1, "Customer name is required"),
   engineNumber: z.string().optional(),
-  inspectionTabs: z.array(inspectionTabSchema).optional(),
-  services: z.array(serviceItemSchema).optional(),
+  inspectionTabs: z.array(inspectionTabSchema).optional().default([]),
+  // New: services + invoice
+  services: z.array(serviceItemSchema).optional().default([]),
   invoice: invoiceSchema.optional(),
-  status: z.enum(["pending", "in_progress", "completed", "rejected", "accepted", "delivered"]).optional(),
+  // Updated status enum to include the new intermediate state and more statuses
+  status: z.enum([
+    "pending",
+    "assignment_requested",
+    "in_progress",
+    "completed",
+    "rejected",
+    "accepted",
+    "delivered",
+  ]).optional(),
 });
